@@ -20,7 +20,6 @@
   <div class="max-w-7xl mx-auto flex justify-between items-center">
     <h1 class="text-3xl tracking-tight">Store</h1>
     <button id="checkoutTop" class="relative p-2 rounded-full hover:bg-gray-50" aria-label="Open checkout">
-      <!-- cart icon -->
       <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l3-8H6.4M7 13L5.4 5M7 13l-2 9m12-9l2 9M10 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z"/>
       </svg>
@@ -31,7 +30,6 @@
 
 <!-- LANDING -->
 <section id="landing" class="min-h-screen">
-  <!-- banner -->
   <div class="bg-blue-50 border-b border-blue-100">
     <div class="max-w-7xl mx-auto px-6 py-4">
       <p class="text-center text-blue-900">
@@ -114,7 +112,7 @@
             </div>
           </label>
 
-          <!-- BNPL option (revealed by JS if condition requires) -->
+          <!-- BNPL option -->
           <label id="bnplRow" class="hidden mt-4 flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
             <input type="radio" name="pay" value="bnpl" class="w-4 h-4">
             <div class="flex items-center gap-3">
@@ -142,8 +140,12 @@ const SHIPPING = 9.99;
 
 // Condition: control | checkout_bnpl | product_and_checkout
 const params = new URLSearchParams(location.search);
-const CONDITION = params.get("cond") || "control";
-const WORKER_ID = params.get("workerId") || params.get("worker") || "unknown";
+let CONDITION = params.get("cond");
+if(!CONDITION){
+  const options = ["control","checkout_bnpl","product_and_checkout"];
+  CONDITION = options[Math.floor(Math.random()*options.length)];
+}
+const WORKER_ID = params.get("workerId") || "unknown";
 
 /* ==================== DATA ==================== */
 const PRODUCTS = [
@@ -154,8 +156,8 @@ const PRODUCTS = [
   {id:"5", name:"Jacket",     price:99.99,  image:"https://images.unsplash.com/photo-1617032869698-583c00770254?auto=format&fit=crop&w=800&q=80"}
 ];
 
-/* ==================== STATE & HELPERS ==================== */
-const cart = new Map(); // id -> {id,name,price,image,quantity}
+/* ==================== STATE ==================== */
+const cart = new Map();
 const clicks = { add:0, remove:0, checkoutBtn:0, placeOrder:0, bnplInfo:0 };
 const t0 = performance.now();
 let firstClickMs = null;
@@ -177,7 +179,7 @@ function updateBadges(){
   $("#checkoutCtaWrap").classList.toggle("hidden", count===0);
 }
 
-/* ==================== LANDING RENDER ==================== */
+/* ==================== LANDING ==================== */
 function renderGrid(){
   const root = $("#productGrid");
   root.innerHTML = "";
@@ -186,8 +188,7 @@ function renderGrid(){
     root.insertAdjacentHTML("beforeend", `
       <div class="group card overflow-hidden hover:shadow-smooth transition-all duration-300 hover:-translate-y-1">
         <div class="aspect-square overflow-hidden bg-gray-50">
-          <img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-               onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODgiIGhlaWdodD0iODgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgc3Ryb2tlPSIjMDAwIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBvcGFjaXR5PSIuMyIgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIzLjciPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjU2IiBoZWlnaHQ9IjU2IiByeD0iNiIvPjxwYXRoIGQ9Im0xNiA1OCAxNi0xOCAzMiAzMiIvPjxjaXJjbGUgY3g9IjUzIiBjeT0iMzUiIHI9IjciLz48L3N2Zz4K'">
+          <img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
         </div>
         <div class="p-6 space-y-4">
           <div class="space-y-2">
@@ -208,7 +209,6 @@ function renderGrid(){
       </div>
     `);
   });
-
   root.querySelectorAll("button[data-id]").forEach(btn=>{
     btn.onclick = (e)=>{
       const id = e.currentTarget.getAttribute("data-id");
@@ -237,12 +237,9 @@ function renderGridButtons(){
 function openCheckout(){
   if(cart.size===0){ return; }
   onClickLog("checkoutBtn");
-
-  // Show/hide BNPL option based on condition
   const showBnpl = (CONDITION === "checkout_bnpl" || CONDITION === "product_and_checkout");
   document.getElementById("bnplRow").classList.toggle("hidden", !showBnpl);
 
-  // Build order summary
   const itemsRoot = $("#orderItems");
   itemsRoot.innerHTML = "";
   let subtotal = 0;
@@ -264,7 +261,6 @@ function openCheckout(){
   $("#subtotal").textContent = fmt(subtotal);
   $("#total").textContent    = fmt(subtotal + SHIPPING);
 
-  // switch sections
   document.getElementById("landing").classList.add("hidden");
   document.getElementById("checkout").classList.remove("hidden");
 }
@@ -289,17 +285,11 @@ function placeOrder(){
     firstClickMs: String(firstClickMs ?? ""),
     totalMs: String(totalMs)
   });
-
-  if(QUALTRICS_URL && QUALTRICS_URL !== "YOUR_QUALTRICS_URL"){
-    location.href = QUALTRICS_URL + (QUALTRICS_URL.includes("?")?"&":"?") + q.toString();
-  } else {
-    alert("Demo complete. (Set QUALTRICS_URL to redirect to your survey.)");
-  }
+  location.href = QUALTRICS_URL + (QUALTRICS_URL.includes("?")?"&":"?") + q.toString();
 }
 
-/* ==================== WIRE ==================== */
-renderGrid();
-updateBadges();
+/* ==================== INIT ==================== */
+renderGrid(); updateBadges();
 document.getElementById("checkoutTop").onclick = openCheckout;
 document.getElementById("proceedBtn").onclick  = openCheckout;
 document.getElementById("backBtn").onclick     = backToProducts;
