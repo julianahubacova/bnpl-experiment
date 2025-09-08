@@ -112,13 +112,16 @@
             </div>
           </label>
 
-          <!-- BNPL option -->
+          <!-- BNPL option with dynamic price -->
           <label id="bnplRow" class="hidden mt-4 flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
             <input type="radio" name="pay" value="bnpl" class="w-4 h-4">
             <div class="flex items-center gap-3">
               <div class="w-8 h-6 bg-purple-100 rounded flex items-center justify-center"><span class="text-xs">BNPL</span></div>
-              <span>Pay in 4 interest-free installments
-                <span title="No interest if paid on time. Late fees may apply.">ℹ️</span>
+              <span>
+                Pay in 4 interest-free installments of
+                <strong id="bnplPrice">$0.00</strong>
+                <span class="text-gray-500"> (total <span id="bnplTotal">$0.00</span>)</span>
+                <button class="inline text-gray-500" title="No interest if paid on time. Late fees may apply.">ℹ️</button>
               </span>
             </div>
           </label>
@@ -196,7 +199,7 @@ function renderGrid(){
             <p class="text-2xl">${fmt(p.price)}</p>
             ${CONDITION === "product_and_checkout"
               ? `<p class="text-sm text-gray-600 mt-1">
-                   or 4 payments of ${qtr(p.price)} 
+                   or 4 payments of ${qtr(p.price)} with BNPL
                    <button class="inline text-gray-500" title="No interest if paid on time. Late fees may apply."
                            onclick="clicks.bnplInfo++;event.stopPropagation();">ℹ️</button>
                  </p>`
@@ -237,9 +240,8 @@ function renderGridButtons(){
 function openCheckout(){
   if(cart.size===0){ return; }
   onClickLog("checkoutBtn");
-  const showBnpl = (CONDITION === "checkout_bnpl" || CONDITION === "product_and_checkout");
-  document.getElementById("bnplRow").classList.toggle("hidden", !showBnpl);
 
+  // Build order summary
   const itemsRoot = $("#orderItems");
   itemsRoot.innerHTML = "";
   let subtotal = 0;
@@ -258,9 +260,24 @@ function openCheckout(){
       </div>
     `);
   });
-  $("#subtotal").textContent = fmt(subtotal);
-  $("#total").textContent    = fmt(subtotal + SHIPPING);
 
+  $("#subtotal").textContent = fmt(subtotal);
+  const grand = subtotal + SHIPPING;
+  $("#total").textContent    = fmt(grand);
+
+  // Toggle BNPL visibility by condition
+  const showBnpl = (CONDITION === "checkout_bnpl" || CONDITION === "product_and_checkout");
+  document.getElementById("bnplRow").classList.toggle("hidden", !showBnpl);
+
+  // Fill BNPL dynamic price (per installment and total)
+  const bnplPriceEl = document.getElementById("bnplPrice");
+  const bnplTotalEl = document.getElementById("bnplTotal");
+  if (bnplPriceEl && bnplTotalEl) {
+    bnplPriceEl.textContent = fmt(grand / 4);
+    bnplTotalEl.textContent = fmt(grand);
+  }
+
+  // switch sections
   document.getElementById("landing").classList.add("hidden");
   document.getElementById("checkout").classList.remove("hidden");
 }
