@@ -112,16 +112,26 @@
             </div>
           </label>
 
-          <!-- BNPL option with dynamic price -->
+          <!-- BNPL (single option, mentions common providers) -->
           <label id="bnplRow" class="hidden mt-4 flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
             <input type="radio" name="pay" value="bnpl" class="w-4 h-4">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-6 bg-purple-100 rounded flex items-center justify-center"><span class="text-xs">BNPL</span></div>
-              <span>
+              <div class="w-8 h-6 bg-purple-100 rounded flex items-center justify-center">
+                <span class="text-xs font-semibold">Pay-in-4</span>
+              </div>
+              <span class="leading-snug">
                 Pay in 4 interest-free installments of
                 <strong id="bnplPrice">$0.00</strong>
                 <span class="text-gray-500"> (total <span id="bnplTotal">$0.00</span>)</span>
                 <button id="bnplInfoBtn" class="inline text-gray-500" title="No interest if paid on time. Late fees may apply.">ℹ️</button>
+                <span class="block text-xs text-gray-500 mt-1">
+                  Powered by providers like Afterpay, Klarna, Affirm (availability varies by merchant).
+                </span>
+                <span class="flex items-center gap-2 mt-1 opacity-80">
+                  <img alt="Afterpay" src="https://seeklogo.com/images/A/afterpay-logo-1C9C67C031-seeklogo.com.png" style="height:14px">
+                  <img alt="Klarna"   src="https://upload.wikimedia.org/wikipedia/commons/5/5a/Klarna_Logo_black.svg" style="height:14px">
+                  <img alt="Affirm"   src="https://upload.wikimedia.org/wikipedia/commons/0/0c/Affirm_Logo.svg" style="height:14px">
+                </span>
               </span>
             </div>
           </label>
@@ -185,6 +195,7 @@ const $ = sel => document.querySelector(sel);
 const fmt = n => `$${n.toFixed(2)}`;
 const qtr = n => `$${(n/4).toFixed(2)}`;
 
+/* ==================== CART HELPERS ==================== */
 function onClickLog(key){
   clicks[key]=(clicks[key]||0)+1;
   if(firstClickMs===null) firstClickMs=Math.round(performance.now()-t0);
@@ -192,10 +203,10 @@ function onClickLog(key){
 }
 function updateBadges(){
   const count = [...cart.values()].reduce((s,i)=>s+i.quantity,0);
-  const badge = $("#cartBadge");
+  const badge = document.getElementById("cartBadge");
   badge.textContent = count;
   badge.classList.toggle("hidden", count===0);
-  $("#checkoutCtaWrap").classList.toggle("hidden", count===0);
+  document.getElementById("checkoutCtaWrap").classList.toggle("hidden", count===0);
 }
 
 // track landing scroll depth
@@ -210,7 +221,7 @@ document.addEventListener('scroll', () => {
 
 /* ==================== LANDING ==================== */
 function renderGrid(){
-  const root = $("#productGrid");
+  const root = document.getElementById("productGrid");
   root.innerHTML = "";
   PRODUCTS.forEach(p=>{
     const item = cart.get(p.id);
@@ -287,7 +298,7 @@ function openCheckout(){
   switchSection("checkout");
 
   // Build order summary
-  const itemsRoot = $("#orderItems");
+  const itemsRoot = document.getElementById("orderItems");
   itemsRoot.innerHTML = "";
   let subtotal = 0;
   cart.forEach(item=>{
@@ -307,16 +318,16 @@ function openCheckout(){
     `);
   });
 
-  $("#subtotal").textContent = fmt(subtotal);
+  document.getElementById("subtotal").textContent = fmt(subtotal);
   const grand = subtotal + SHIPPING;
-  $("#total").textContent    = fmt(grand);
+  document.getElementById("total").textContent    = fmt(grand);
 
   // Toggle BNPL visibility by condition
   const showBnpl = (CONDITION === "checkout_bnpl" || CONDITION === "product_and_checkout");
   document.getElementById("bnplRow").classList.toggle("hidden", !showBnpl);
   sawBnplOnCheckout = showBnpl ? 1 : 0;
 
-  // BNPL dynamic price
+  // Fill BNPL dynamic price
   const bnplPriceEl = document.getElementById("bnplPrice");
   const bnplTotalEl = document.getElementById("bnplTotal");
   if (bnplPriceEl && bnplTotalEl) {
@@ -358,7 +369,7 @@ function placeOrder(){
   const totalMs = Math.round(performance.now()-t0);
 
   const q = new URLSearchParams({
-    // original fields (backward compatible with your Qualtrics ED list)
+    // original fields (backward compatible)
     workerId: WORKER_ID,
     condition: CONDITION,
     cart_size: String(itemsCount),
@@ -369,7 +380,7 @@ function placeOrder(){
     bnplInfoClicks: String(clicks.bnplInfo),
     firstClickMs: String(firstClickMs ?? ""),
     totalMs: String(totalMs),
-    // new fields (for richer analysis)
+    // new fields
     variant: CONDITION,
     saw_bnpl_on_product: String(sawBnplOnProduct),
     saw_bnpl_on_checkout: String(sawBnplOnCheckout),
