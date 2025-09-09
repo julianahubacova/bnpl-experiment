@@ -199,7 +199,7 @@ function renderGrid(){
             <p class="text-2xl">${fmt(p.price)}</p>
             ${CONDITION === "product_and_checkout"
               ? `<p class="text-sm text-gray-600 mt-1">
-                   or 4 payments of ${qtr(p.price)} with BNPL
+                   or 4 payments of ${qtr(p.price)}
                    <button class="inline text-gray-500" title="No interest if paid on time. Late fees may apply."
                            onclick="clicks.bnplInfo++;event.stopPropagation();">ℹ️</button>
                  </p>`
