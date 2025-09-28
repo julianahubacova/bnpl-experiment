@@ -350,7 +350,8 @@ function placeOrder(){
   // finalize timers
   switchSection("landing");
 
-  const pay = document.querySelector('input[name="pay"]:checked')?.value || "none";
+  const raw = document.querySelector('input[name="pay"]:checked')?.value || "none";
+  const pay = raw === "debitcard" || raw === "creditcard" ? "card" : raw;  
   clicks.placeOrder++;
 
   // basket numbers
