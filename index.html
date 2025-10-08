@@ -223,6 +223,20 @@ const $ = sel => document.querySelector(sel);
 const fmt = n => `$${n.toFixed(2)}`;
 const qtr = n => `$${(n/4).toFixed(2)}`;
 
+/* ===== New experiment hygiene & dynamics ===== */
+let checkoutOpenedAt = null;
+let firstPaymentChangeAt = null;
+let timeToCheckoutMs = null;
+let timeToPaymentChoiceMs = null;
+
+let bnplInfoClicksPayin4 = 0;
+let bnplInfoClicksMonthly = 0;
+let bnplPlanToggleCount = 0;
+let lastBnplPlan = null;
+
+const EXPERIMENT_VERSION = "v2_bnpl_dual_8m_19_99";
+const CURRENCY = "USD";
+
 /* ==================== CART HELPERS ==================== */
 function onClickLog(key){
   clicks[key]=(clicks[key]||0)+1;
@@ -326,6 +340,7 @@ function openCheckout(){
   onClickLog("checkoutBtn");
   reachedCheckout = 1;
   switchSection("checkout");
+  checkoutOpenedAt = performance.now(); // NEW: mark when checkout opened
 
   // Build order summary
   const itemsRoot = document.getElementById("orderItems");
@@ -375,7 +390,8 @@ function openCheckout(){
     // Info modals
     const modal = $("#bnplModal"), body = $("#bnplModalBody"), title = $("#bnplModalTitle");
     $("#bnpl4InfoBtn").onclick = () => {
-      clicks.bnplInfo++;
+      bnplInfoClicksPayin4++; // NEW: plan-specific counter
+      clicks.bnplInfo++;      // keep aggregate counter
       title.textContent = "Pay-in-4 (interest-free)";
       body.innerHTML = `
         <ul class="list-disc ml-5 space-y-1">
@@ -387,6 +403,7 @@ function openCheckout(){
       modal.classList.remove("hidden");
     };
     $("#bnplMonthlyInfoBtn").onclick = () => {
+      bnplInfoClicksMonthly++; // NEW: plan-specific counter
       clicks.bnplInfo++;
       title.textContent = `Monthly plan (${m.months} months)`;
       body.innerHTML = `
@@ -428,6 +445,14 @@ function placeOrder(){
   const priceTier  = orderTotal < 75 ? "low" : (orderTotal <= 175 ? "mid" : "high");
   const bnplInstallment = orderTotal/4;
 
+  // NEW timings
+  if (checkoutOpenedAt !== null) {
+    timeToCheckoutMs = Math.round(checkoutOpenedAt - t0);
+  }
+  const timeInCheckoutBeforeOrderMs = (checkoutOpenedAt !== null)
+    ? Math.round(performance.now() - checkoutOpenedAt)
+    : null;
+
   // BNPL metadata (if chosen)
   let bnplMonths = "", bnplAPR = "", bnplPayment = "", bnplTotalCost = "";
   if (pay === "bnpl_monthly"){
@@ -444,6 +469,17 @@ function placeOrder(){
     bnplAPR = "0.00";
     bnplPayment = (orderTotal/4).toFixed(2);
     bnplTotalCost = orderTotal.toFixed(2);
+  }
+
+  // NEW basket descriptors & BNPL interest delta
+  const distinctItemsCount = cart.size;
+  const avgItemPrice = itemsCount > 0 ? (subtotal / itemsCount) : 0;
+
+  let bnplInterestUsd = "";
+  if (pay === "bnpl_monthly") {
+    bnplInterestUsd = (parseFloat(bnplTotalCost) - orderTotal).toFixed(2);
+  } else if (pay === "bnpl4") {
+    bnplInterestUsd = "0.00";
   }
 
   const totalMs = Math.round(performance.now()-t0);
@@ -485,7 +521,20 @@ function placeOrder(){
     bnpl_months: bnplMonths,
     bnpl_apr: bnplAPR,
     bnpl_payment_usd: bnplPayment,
-    bnpl_total_cost_usd: bnplTotalCost
+    bnpl_total_cost_usd: bnplTotalCost,
+
+    // ===== NEW embedded data =====
+    experiment_version: EXPERIMENT_VERSION,
+    currency: CURRENCY,
+    bnpl_info_clicks_payin4: String(bnplInfoClicksPayin4),
+    bnpl_info_clicks_monthly: String(bnplInfoClicksMonthly),
+    bnpl_plan_toggle_count: String(bnplPlanToggleCount),
+    time_to_checkout_ms: String(timeToCheckoutMs ?? ""),
+    time_to_payment_choice_ms: String(timeToPaymentChoiceMs ?? ""),
+    time_in_checkout_before_order_ms: String(timeInCheckoutBeforeOrderMs ?? ""),
+    avg_item_price_usd: avgItemPrice.toFixed(2),
+    distinct_items_count: String(distinctItemsCount),
+    bnpl_interest_usd: bnplInterestUsd
   });
 
   location.href = QUALTRICS_URL + (QUALTRICS_URL.includes("?")?"&":"?") + q.toString();
@@ -500,9 +549,24 @@ document.getElementById("proceedBtn").onclick  = openCheckout;
 document.getElementById("backBtn").onclick     = backToProducts;
 document.getElementById("placeBtn").onclick    = placeOrder;
 
-// payment selection change counter
+// payment selection change counter (ENHANCED)
 document.addEventListener('change', (e) => {
-  if (e.target && e.target.name === 'pay') { clicks.paymentChanges++; }
+  if (e.target && e.target.name === 'pay') {
+    clicks.paymentChanges++;
+
+    // time to first payment change after checkout opens
+    if (checkoutOpenedAt !== null && firstPaymentChangeAt === null) {
+      firstPaymentChangeAt = performance.now();
+      timeToPaymentChoiceMs = Math.round(firstPaymentChangeAt - checkoutOpenedAt);
+    }
+
+    // track toggles between the two BNPL plans
+    const val = e.target.value;
+    if (val === 'bnpl4' || val === 'bnpl_monthly') {
+      if (lastBnplPlan && lastBnplPlan !== val) bnplPlanToggleCount++;
+      lastBnplPlan = val;
+    }
+  }
 });
 </script>
 </body>
