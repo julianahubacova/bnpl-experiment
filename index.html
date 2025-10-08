@@ -96,40 +96,51 @@
         <div class="card p-6 mb-6">
           <h3 class="text-lg mb-4">Payment Method</h3>
 
+          <!-- SINGLE CARD OPTION (debit/credit combined) -->
           <label class="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
-            <input type="radio" name="pay" value="debitcard" class="w-4 h-4" checked>
+            <input type="radio" name="pay" value="card" class="w-4 h-4" checked>
             <div class="flex items-center gap-3">
               <div class="w-8 h-6 bg-gray-100 rounded flex items-center justify-center"><span class="text-xs text-gray-600">💳</span></div>
-              <span>Debit Card</span>
+              <span>Card (debit or credit)</span>
             </div>
           </label>
 
-          <label class="mt-4 flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
-            <input type="radio" name="pay" value="creditcard" class="w-4 h-4">
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-6 bg-blue-100 rounded flex items-center justify-center"><span class="text-xs">💳</span></div>
-              <span>Credit Card</span>
-            </div>
-          </label>
-
-          <!-- BNPL (single option, mentions common providers) -->
-          <label id="bnplRow" class="hidden mt-4 flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
-            <input type="radio" name="pay" value="bnpl" class="w-4 h-4">
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-6 bg-purple-100 rounded flex items-center justify-center">
-                <span class="text-xs font-semibold">Pay-in-4</span>
-              </div>
-              <span class="leading-snug">
-                Pay in 4 interest-free installments of
-                <strong id="bnplPrice">$0.00</strong>
-                <span class="text-gray-500"> (total <span id="bnplTotal">$0.00</span>)</span>
-                <button id="bnplInfoBtn" class="inline text-gray-500" title="No interest if paid on time. Late fees may apply.">ℹ️</button>
-                <span class="block text-xs text-gray-500 mt-1">
-                  Powered by providers like Afterpay, Klarna, Affirm.
+          <!-- BNPL GROUP: Pay-in-4 + Monthly -->
+          <div id="bnplGroup" class="hidden mt-4 space-y-3">
+            <!-- Pay-in-4 (interest-free) -->
+            <label class="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
+              <input type="radio" name="pay" value="bnpl4" class="w-4 h-4">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-6 bg-purple-100 rounded flex items-center justify-center">
+                  <span class="text-[11px] font-semibold">Pay-in-4</span>
+                </div>
+                <span class="leading-snug">
+                  4 interest-free payments of <strong id="bnpl4Price">$0.00</strong>
+                  <button id="bnpl4InfoBtn" class="inline text-gray-500" title="How it works">ℹ️</button>
+                  <span class="block text-xs text-gray-500 mt-1">
+                    No interest if paid on time. Late fees may apply. Providers like Klarna, Afterpay, Affirm.
+                  </span>
                 </span>
-              </span>
-            </div>
-          </label>
+              </div>
+            </label>
+
+            <!-- Monthly plan (with interest) -->
+            <label class="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
+              <input type="radio" name="pay" value="bnpl_monthly" class="w-4 h-4">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-6 bg-rose-100 rounded flex items-center justify-center">
+                  <span class="text-[11px] font-semibold">Monthly</span>
+                </div>
+                <span class="leading-snug">
+                  From <strong id="bnplMonthlyPrice">$0.00</strong> /mo for <span id="bnplMonths">6</span> months
+                  <button id="bnplMonthlyInfoBtn" class="inline text-gray-500" title="APR & fees">ℹ️</button>
+                  <span class="block text-xs text-gray-500 mt-1">
+                    Interest applies. Example APR <span id="bnplAPR">19.99%</span>. Late fees may apply.
+                  </span>
+                </span>
+              </div>
+            </label>
+          </div>
         </div>
 
         <button id="placeBtn" class="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-full py-4 text-lg transition-colors">
@@ -140,6 +151,15 @@
     </div>
   </div>
 </section>
+
+<!-- BNPL Info Modal (re-usable) -->
+<div id="bnplModal" class="hidden fixed inset-0 bg-black/40 z-50">
+  <div class="mx-auto mt-24 max-w-md card p-6 bg-white">
+    <h4 id="bnplModalTitle" class="text-lg font-semibold mb-2">About this plan</h4>
+    <div id="bnplModalBody" class="text-sm text-gray-700 space-y-2"></div>
+    <button id="bnplModalClose" class="mt-4 w-full bg-gray-900 hover:bg-gray-800 text-white rounded-md py-2">Got it</button>
+  </div>
+</div>
 
 <script>
 /* ==================== CONFIG ==================== */
@@ -154,6 +174,19 @@ if(!CONDITION){
   CONDITION = options[Math.floor(Math.random()*options.length)];
 }
 const WORKER_ID = params.get("workerId") || "unknown";
+
+/* ==== BNPL plan config (tunable) ==== */
+const BNPL_PLANS = {
+  payin4:  { id:'bnpl4', parts:4, apr:0,        months:2, type:'payin4' },   // biweekly x4
+  monthly: { id:'bnpl_monthly', months:6, apr:19.99, min_purchase:50 }       // example plan
+};
+
+/* Loan payment helper: monthly payment for principal P, monthly rate r, n months */
+function pmt(P, rMonthly, n){
+  if (rMonthly === 0) return P / n;
+  const pow = Math.pow(1 + rMonthly, n);
+  return P * rMonthly * pow / (pow - 1);
+}
 
 /* ==================== DATA ==================== */
 const PRODUCTS = [
@@ -221,6 +254,14 @@ function renderGrid(){
   PRODUCTS.forEach(p=>{
     const item = cart.get(p.id);
     const qty = item ? item.quantity : 0;
+
+    // neutral BNPL line shown only for product_and_checkout condition
+    const bnplNotice = (CONDITION === "product_and_checkout")
+      ? `<p class="text-sm text-gray-600 mt-1">
+           Pay later options available <span class="text-gray-400">(details at checkout)</span>
+         </p>`
+      : ``;
+
     root.insertAdjacentHTML("beforeend", `
       <div class="group card overflow-hidden hover:shadow-smooth transition-all duration-300 hover:-translate-y-1">
         <div class="aspect-square overflow-hidden bg-gray-50">
@@ -230,13 +271,7 @@ function renderGrid(){
           <div class="space-y-2">
             <h3 class="text-lg tracking-tight">${p.name}</h3>
             <p class="text-2xl">${fmt(p.price)}</p>
-            ${CONDITION === "product_and_checkout"
-              ? `<p class="text-sm text-gray-600 mt-1">
-                   or 4 payments of ${qtr(p.price)}
-                   <button class="inline text-gray-500" title="No interest if paid on time. Late fees may apply."
-                           onclick="clicks.bnplInfo++;event.stopPropagation();">ℹ️</button>
-                 </p>`
-              : ``}
+            ${bnplNotice}
           </div>
           <div class="space-y-2">
             <button data-action="add" data-id="${p.id}" class="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-full py-2">
@@ -317,26 +352,58 @@ function openCheckout(){
   const grand = subtotal + SHIPPING;
   document.getElementById("total").textContent    = fmt(grand);
 
-  // Toggle BNPL visibility by condition
+  // Toggle BNPL group by condition
   const showBnpl = (CONDITION === "checkout_bnpl" || CONDITION === "product_and_checkout");
-  document.getElementById("bnplRow").classList.toggle("hidden", !showBnpl);
+  const bnplGroup = document.getElementById("bnplGroup");
+  bnplGroup.classList.toggle("hidden", !showBnpl);
   sawBnplOnCheckout = showBnpl ? 1 : 0;
 
-  // Fill BNPL dynamic price
-  const bnplPriceEl = document.getElementById("bnplPrice");
-  const bnplTotalEl = document.getElementById("bnplTotal");
-  if (bnplPriceEl && bnplTotalEl) {
-    bnplPriceEl.textContent = fmt(grand / 4);
-    bnplTotalEl.textContent = fmt(grand);
+  if (showBnpl){
+    // Pay-in-4 amount is simply total / 4
+    document.getElementById("bnpl4Price").textContent = fmt(grand / BNPL_PLANS.payin4.parts);
+
+    // Monthly plan estimate with APR
+    const m = BNPL_PLANS.monthly;
+    const rMonthly = m.apr / 100 / 12;
+    const payMonthly = pmt(grand, rMonthly, m.months);
+    const totalPaid = payMonthly * m.months;
+
+    document.getElementById("bnplMonths").textContent = String(m.months);
+    document.getElementById("bnplAPR").textContent = `${m.apr.toFixed(2)}%`;
+    document.getElementById("bnplMonthlyPrice").textContent = fmt(payMonthly);
+
+    // Info modals
+    const modal = $("#bnplModal"), body = $("#bnplModalBody"), title = $("#bnplModalTitle");
+    $("#bnpl4InfoBtn").onclick = () => {
+      clicks.bnplInfo++;
+      title.textContent = "Pay-in-4 (interest-free)";
+      body.innerHTML = `
+        <ul class="list-disc ml-5 space-y-1">
+          <li>4 equal payments every 2 weeks; total today: $0.</li>
+          <li>No interest if paid on time; late fees may apply.</li>
+          <li>Soft credit check; won’t impact your credit score.</li>
+          <li>Estimated payment: <strong>${fmt(grand / 4)}</strong> x 4 (total ${fmt(grand)}).</li>
+        </ul>`;
+      modal.classList.remove("hidden");
+    };
+    $("#bnplMonthlyInfoBtn").onclick = () => {
+      clicks.bnplInfo++;
+      title.textContent = `Monthly plan (${m.months} months)`;
+      body.innerHTML = `
+        <ul class="list-disc ml-5 space-y-1">
+          <li>Fixed monthly payment over ${m.months} months.</li>
+          <li>Interest applies at ~${m.apr.toFixed(2)}% APR; late fees may apply.</li>
+          <li>Illustrative payment: <strong>${fmt(payMonthly)}</strong>/mo; total about <strong>${fmt(totalPaid)}</strong>.</li>
+          <li>Soft credit check; won’t impact your credit score.</li>
+        </ul>`;
+      modal.classList.remove("hidden");
+    };
+    $("#bnplModalClose").onclick = () => modal.classList.add("hidden");
   }
 
   // switch sections
   document.getElementById("landing").classList.add("hidden");
   document.getElementById("checkout").classList.remove("hidden");
-
-  // BNPL info click at checkout
-  const infoBtn = document.getElementById("bnplInfoBtn");
-  if (infoBtn) infoBtn.onclick = () => { clicks.bnplInfo++; };
 }
 
 function backToProducts(){
@@ -350,8 +417,7 @@ function placeOrder(){
   // finalize timers
   switchSection("landing");
 
-  const raw = document.querySelector('input[name="pay"]:checked')?.value || "none";
-  const pay = raw === "debitcard" || raw === "creditcard" ? "card" : raw;  
+  const pay = document.querySelector('input[name="pay"]:checked')?.value || "none"; // card | bnpl4 | bnpl_monthly
   clicks.placeOrder++;
 
   // basket numbers
@@ -362,20 +428,38 @@ function placeOrder(){
   const priceTier  = orderTotal < 75 ? "low" : (orderTotal <= 175 ? "mid" : "high");
   const bnplInstallment = orderTotal/4;
 
+  // BNPL metadata (if chosen)
+  let bnplMonths = "", bnplAPR = "", bnplPayment = "", bnplTotalCost = "";
+  if (pay === "bnpl_monthly"){
+    const m = BNPL_PLANS.monthly;
+    const rMonthly = m.apr / 100 / 12;
+    const payMonthly = pmt(orderTotal, rMonthly, m.months);
+    bnplMonths = String(m.months);
+    bnplAPR = m.apr.toFixed(2);
+    bnplPayment = payMonthly.toFixed(2);
+    bnplTotalCost = (payMonthly * m.months).toFixed(2);
+  }
+  if (pay === "bnpl4"){
+    bnplMonths = "2 (biweekly x4)";
+    bnplAPR = "0.00";
+    bnplPayment = (orderTotal/4).toFixed(2);
+    bnplTotalCost = orderTotal.toFixed(2);
+  }
+
   const totalMs = Math.round(performance.now()-t0);
 
   const q = new URLSearchParams({
-    // original fields (backward compatible)
     workerId: WORKER_ID,
     condition: CONDITION,
     cart_size: String(itemsCount),
-    chose_pay: pay,
+    chose_pay: pay, // card | bnpl4 | bnpl_monthly
     addClicks: String(clicks.add),
     removeClicks: String(clicks.remove),
     checkoutClicks: String(clicks.checkoutBtn),
     bnplInfoClicks: String(clicks.bnplInfo),
     firstClickMs: String(firstClickMs ?? ""),
     totalMs: String(totalMs),
+
     // new fields
     variant: CONDITION,
     saw_bnpl_on_product: String(sawBnplOnProduct),
@@ -395,8 +479,15 @@ function placeOrder(){
     device_type,
     viewport_w: String(viewport_w),
     ua_family,
-    order_completed: "1"
+    order_completed: "1",
+
+    // BNPL richer fields
+    bnpl_months: bnplMonths,
+    bnpl_apr: bnplAPR,
+    bnpl_payment_usd: bnplPayment,
+    bnpl_total_cost_usd: bnplTotalCost
   });
+
   location.href = QUALTRICS_URL + (QUALTRICS_URL.includes("?")?"&":"?") + q.toString();
 }
 
