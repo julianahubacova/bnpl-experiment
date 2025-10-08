@@ -132,7 +132,7 @@
                   <span class="text-[11px] font-semibold">Monthly</span>
                 </div>
                 <span class="leading-snug">
-                  From <strong id="bnplMonthlyPrice">$0.00</strong> /mo for <span id="bnplMonths">6</span> months
+                  From <strong id="bnplMonthlyPrice">$0.00</strong> /mo for <span id="bnplMonths">8</span> months
                   <button id="bnplMonthlyInfoBtn" class="inline text-gray-500" title="APR & fees">ℹ️</button>
                   <span class="block text-xs text-gray-500 mt-1">
                     Interest applies. Example APR <span id="bnplAPR">19.99%</span>. Late fees may apply.
@@ -178,7 +178,7 @@ const WORKER_ID = params.get("workerId") || "unknown";
 /* ==== BNPL plan config (tunable) ==== */
 const BNPL_PLANS = {
   payin4:  { id:'bnpl4', parts:4, apr:0,        months:2, type:'payin4' },   // biweekly x4
-  monthly: { id:'bnpl_monthly', months:6, apr:19.99, min_purchase:50 }       // example plan
+  monthly: { id:'bnpl_monthly', months:8, apr:19.99, min_purchase:50 }       // example plan
 };
 
 /* Loan payment helper: monthly payment for principal P, monthly rate r, n months */
