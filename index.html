@@ -379,9 +379,9 @@ function openCheckout(){
       title.textContent = "Pay-in-4 (interest-free)";
       body.innerHTML = `
         <ul class="list-disc ml-5 space-y-1">
-          <li>4 equal payments every 2 weeks; total today: $0.</li>
-          <li>No interest if paid on time; late fees may apply.</li>
-          <li>Soft credit check; won’t impact your credit score.</li>
+          <li>4 equal payments every 2 weeks. Total today: $0.</li>
+          <li>No interest if paid on time, late fees may apply.</li>
+          <li>Soft credit check (won’t impact your credit score).</li>
           <li>Estimated payment: <strong>${fmt(grand / 4)}</strong> x 4 (total ${fmt(grand)}).</li>
         </ul>`;
       modal.classList.remove("hidden");
@@ -392,9 +392,9 @@ function openCheckout(){
       body.innerHTML = `
         <ul class="list-disc ml-5 space-y-1">
           <li>Fixed monthly payment over ${m.months} months.</li>
-          <li>Interest applies at ~${m.apr.toFixed(2)}% APR; late fees may apply.</li>
-          <li>Illustrative payment: <strong>${fmt(payMonthly)}</strong>/mo; total about <strong>${fmt(totalPaid)}</strong>.</li>
-          <li>Soft credit check; won’t impact your credit score.</li>
+          <li>Interest applies at ~${m.apr.toFixed(2)}% APR, late fees may apply.</li>
+          <li>Illustrative payment: <strong>${fmt(payMonthly)}</strong>/mo, total about <strong>${fmt(totalPaid)}</strong>.</li>
+          <li>Soft credit check (won’t impact your credit score).</li>
         </ul>`;
       modal.classList.remove("hidden");
     };
